@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Research Paper Recommendation & Citation Graph System</title>
+    <!-- Tailwind CSS with Dark Mode -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Cytoscape for Citation Network Graph -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+        .tab-btn.active { border-bottom: 2px solid #4f46e5; color: #4f46e5; font-weight: 600; }
+        .dark .tab-btn.active { border-bottom: 2px solid #818cf8; color: #818cf8; }
+        #cy { width: 100%; height: 600px; background-color: #0b0f19; border-radius: 1rem; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+            <!-- Brand -->
+            <a href="/" class="flex items-center space-x-3 group">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-slate-800 dark:text-white leading-tight">SRPS <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 ml-1">v2.0 Pro</span></h1>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">DSA-3 · KL University Section A7 Group 5</p>
+                </div>
+            </a>
+
+            <!-- Right Controls: Dark Mode & Auth -->
+            <div class="flex items-center space-x-3">
+                <!-- Theme Toggle -->
+                <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Toggle Dark/Light Mode">
+                    <span id="themeIcon">🌙</span>
+                </button>
+
+                <!-- Auth Widget: Logged In vs Logged Out -->
+                <div id="authContainer" class="flex items-center space-x-2">
+                    <!-- Dynamic Auth View inserted via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-8 border-t border-slate-100 dark:border-slate-800 overflow-x-auto custom-scrollbar">
+            <button onclick="switchTab('recommend')" id="tab-recommend" class="tab-btn active py-3 text-sm flex items-center space-x-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">
+                <span>🔍</span><span>Recommendations</span>
+            </button>
+            <button onclick="switchTab('network')" id="tab-network" class="tab-btn py-3 text-sm flex items-center space-x-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">
+                <span>🕸️</span><span>Citation Graph Explorer</span>
+            </button>
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn py-3 text-sm flex items-center space-x-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">
+                <span>📊</span><span>DSA Graph Analytics</span>
+            </button>
+            <button onclick="switchTab('library')" id="tab-library" class="tab-btn py-3 text-sm flex items-center space-x-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">
+                <span>📚</span><span>My Library & Bookmarks</span>
+                <span id="bookmarkCountBadge" class="bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 text-xs px-2 py-0.2 rounded-full font-bold">0</span>
+            </button>
+            <button onclick="switchTab('arxiv')" id="tab-arxiv" class="tab-btn py-3 text-sm flex items-center space-x-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">
+                <span>🌐</span><span>Live arXiv Ingest</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- ─────────────────── TAB 1: RECOMMENDATIONS ─────────────────── -->
+        <div id="content-recommend" class="space-y-6">
+            <!-- Search & Controls Card -->
+            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors">
+                <div class="flex flex-col md:flex-row gap-3">
+                    <div class="relative flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" id="searchInput" placeholder="Search research papers (e.g. transformers, residual networks, deep learning)..."
+                            class="w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-100 text-base focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition"
+                            value="deep learning for image classification">
+                    </div>
+                    <button onclick="triggerSearch()" id="searchBtn"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-7 py-3.5 rounded-2xl shadow-md shadow-indigo-600/20 transition flex items-center justify-center space-x-2 shrink-0">
+                        <span>Search & Rank</span>
+                    </button>
+                </div>
+
+                <!-- Quick Query Chips -->
+                <div class="mt-3 flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
+                    <span class="font-medium text-slate-700 dark:text-slate-300">Popular:</span>
+                    <button onclick="setQuery('transformer attention mechanism')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-lg transition">Transformers & Attention</button>
+                    <button onclick="setQuery('deep residual learning resnet')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-lg transition">ResNet & Vision</button>
+                    <button onclick="setQuery('reinforcement learning policy gradient')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-lg transition">Reinforcement Learning</button>
+                    <button onclick="setQuery('natural language processing BERT')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-lg transition">BERT & Language Models</button>
+                    <button onclick="setQuery('graph neural networks node classification')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-lg transition">Graph Neural Networks</button>
+                </div>
+
+                <!-- Algorithm Controls & Dynamic Sliders -->
+                <div class="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div>
+                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Algorithm & Scoring Model</span>
+                            <p class="text-[11px] text-slate-400">Fine-tune weights in real-time or switch ranking formulations.</p>
+                        </div>
+                        <div class="flex items-center space-x-3 text-xs">
+                            <span class="text-slate-500 dark:text-slate-400">Algorithm:</span>
+                            <select id="algoSelect" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl p-1.5 font-medium">
+                                <option value="hybrid" selected>Hybrid Multi-Signal Fusion</option>
+                                <option value="bm25">Okapi BM25 + Citation</option>
+                                <option value="rrf">Reciprocal Rank Fusion (RRF)</option>
+                                <option value="mmr">MMR Diversity Reranking</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Sliders Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                        <div class="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <div class="flex justify-between font-medium text-slate-700 dark:text-slate-200 mb-1">
+                                <span>Content Similarity (α)</span>
+                                <span id="valContent" class="font-bold text-indigo-600 dark:text-indigo-400">0.50</span>
+                            </div>
+                            <input type="range" id="weightContent" min="0" max="1" step="0.05" value="0.5" oninput="$('valContent').textContent = Number(this.value).toFixed(2)" class="w-full accent-indigo-600">
+                            <p class="text-[10px] text-slate-400 mt-1">TF-IDF + BM25 text relevance</p>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <div class="flex justify-between font-medium text-slate-700 dark:text-slate-200 mb-1">
+                                <span>Citation Graph (β)</span>
+                                <span id="valCitation" class="font-bold text-emerald-600 dark:text-emerald-400">0.30</span>
+                            </div>
+                            <input type="range" id="weightCitation" min="0" max="1" step="0.05" value="0.3" oninput="$('valCitation').textContent = Number(this.value).toFixed(2)" class="w-full accent-indigo-600">
+                            <p class="text-[10px] text-slate-400 mt-1">Personalized PageRank & Network</p>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <div class="flex justify-between font-medium text-slate-700 dark:text-slate-200 mb-1">
+                                <span>User Interest (γ)</span>
+                                <span id="valUser" class="font-bold text-pink-600 dark:text-pink-400">0.20</span>
+                            </div>
+                            <input type="range" id="weightUser" min="0" max="1" step="0.05" value="0.2" oninput="$('valUser').textContent = Number(this.value).toFixed(2)" class="w-full accent-indigo-600">
+                            <p class="text-[10px] text-slate-400 mt-1">Profile alignment & history boost</p>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <div class="flex justify-between font-medium text-slate-700 dark:text-slate-200 mb-1">
+                                <span>Recency Bias (δ)</span>
+                                <span id="valRecency" class="font-bold text-amber-600 dark:text-amber-400">0.00</span>
+                            </div>
+                            <input type="range" id="weightRecency" min="0" max="0.5" step="0.05" value="0.0" oninput="$('valRecency').textContent = Number(this.value).toFixed(2)" class="w-full accent-indigo-600">
+                            <p class="text-[10px] text-slate-400 mt-1">Exponential publication decay</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsContainer">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center space-x-2">
+                        <span>Top Recommendations</span>
+                        <span id="resultsCount" class="text-xs bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">0 papers</span>
+                    </h2>
+                    <span id="activeAlgoBadge" class="text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 px-2.5 py-1 rounded-lg font-medium">Hybrid Fusion</span>
+                </div>
+                <div id="resultsList" class="space-y-4">
+                    <!-- Dynamic Recommendation Cards will be injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ─────────────────── TAB 2: CITATION NETWORK GRAPH ─────────────────── -->
+        <div id="content-network" class="hidden space-y-6">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 dark:text-white">Interactive Citation Network Graph</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Nodes sized by PageRank; arrows indicate directed citations. Colors indicate thematic modularity communities.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button onclick="resetGraphView()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
+                            🎯 Center & Fit
+                        </button>
+                        <button onclick="runLayout('cose')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
+                            Force Layout
+                        </button>
+                        <button onclick="runLayout('concentric')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
+                            Concentric Layout
+                        </button>
+                        <button onclick="runLayout('circle')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
+                            Circular Layout
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Path Finding Widget -->
+                <div class="mb-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 text-xs">
+                    <span class="font-bold text-slate-700 dark:text-slate-300">Find Shortest Citation Lineage:</span>
+                    <select id="pathSource" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 max-w-xs text-slate-800 dark:text-slate-200"></select>
+                    <span class="text-slate-400">➔</span>
+                    <select id="pathTarget" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 max-w-xs text-slate-800 dark:text-slate-200"></select>
+                    <button onclick="computeShortestPath()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-3.5 py-2 rounded-xl transition">
+                        Trace Lineage
+                    </button>
+                    <button onclick="clearShortestPathHighlight()" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-2 py-1">
+                        Clear
+                    </button>
+                    <span id="pathResultText" class="text-indigo-600 dark:text-indigo-400 font-semibold ml-auto"></span>
+                </div>
+
+                <!-- The Cytoscape Container & Node Inspector Side-by-Side -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 relative">
+                        <div id="cy"></div>
+                        <!-- Graph Legend -->
+                        <div class="absolute bottom-3 left-3 bg-slate-950/85 backdrop-blur text-white text-[11px] p-3 rounded-2xl border border-slate-800 space-y-1">
+                            <div class="font-semibold text-slate-300">Cluster Legend:</div>
+                            <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span><span>Machine Learning & Optim.</span></div>
+                            <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span><span>Deep Vision & ResNets</span></div>
+                            <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span><span>NLP & Transformers</span></div>
+                            <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span><span>Reinforcement & Graphs</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Node Inspector Panel -->
+                    <div class="bg-slate-50 dark:bg-slate-950 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-3">
+                                <h3 class="font-bold text-slate-800 dark:text-white text-sm">Paper Node Inspector</h3>
+                                <span id="nodeBadge" class="text-[10px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold px-2 py-0.5 rounded-full">Click any node</span>
+                            </div>
+                            <div id="inspectorContent" class="text-xs text-slate-600 dark:text-slate-400 space-y-3">
+                                <p class="text-slate-400 italic">Click any paper node in the citation graph to view its detailed metadata, citations, and PageRank.</p>
+                            </div>
+                        </div>
+                        <div id="inspectorActions" class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 hidden space-y-2">
+                            <a id="inspectPaperLink" href="#" target="_blank" rel="noopener noreferrer" class="w-full text-center block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-sm">
+                                🔗 Open Full Paper ↗
+                            </a>
+                            <button id="inspectRecommendBtn" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold py-2 rounded-xl text-xs transition">
+                                Recommend Similar to This
+                            </button>
+                            <button id="inspectCiteBtn" class="w-full bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium py-2 rounded-xl text-xs border border-slate-300 dark:border-slate-700 transition">
+                                Cite Paper (BibTeX)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─────────────────── TAB 3: DSA GRAPH ANALYTICS ─────────────────── -->
+        <div id="content-analytics" class="hidden space-y-6">
+            <!-- Metric KPI Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Papers (V)</div>
+                    <div id="kpiNodes" class="text-2xl font-black text-slate-800 dark:text-white mt-1">-</div>
+                    <div class="text-[10px] text-slate-400">Graph vertices</div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Citations (E)</div>
+                    <div id="kpiEdges" class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">-</div>
+                    <div class="text-[10px] text-slate-400">Directed edges</div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Network Density</div>
+                    <div id="kpiDensity" class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">-</div>
+                    <div class="text-[10px] text-slate-400">E / (V * (V-1))</div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Avg In/Out Degree</div>
+                    <div id="kpiDegree" class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">-</div>
+                    <div class="text-[10px] text-slate-400">Avg citations/paper</div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Communities</div>
+                    <div id="kpiComm" class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">-</div>
+                    <div class="text-[10px] text-slate-400">Modularity clusters</div>
+                </div>
+            </div>
+
+            <!-- Algorithm Comparisons Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- PageRank Top Papers -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+                        <h3 class="font-bold text-slate-800 dark:text-white text-sm">Top PageRank Papers</h3>
+                        <span class="text-[10px] bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded font-mono font-bold">PR(u)</span>
+                    </div>
+                    <div id="topPageRankList" class="space-y-2.5 text-xs text-slate-600 dark:text-slate-400">Loading...</div>
+                </div>
+
+                <!-- HITS Authorities -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+                        <h3 class="font-bold text-slate-800 dark:text-white text-sm">Top HITS Authorities</h3>
+                        <span class="text-[10px] bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded font-mono font-bold">Auth(u)</span>
+                    </div>
+                    <div id="topAuthoritiesList" class="space-y-2.5 text-xs text-slate-600 dark:text-slate-400">Loading...</div>
+                </div>
+
+                <!-- HITS Hubs -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+                        <h3 class="font-bold text-slate-800 dark:text-white text-sm">Top HITS Hubs</h3>
+                        <span class="text-[10px] bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded font-mono font-bold">Hub(u)</span>
+                    </div>
+                    <div id="topHubsList" class="space-y-2.5 text-xs text-slate-600 dark:text-slate-400">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─────────────────── TAB 4: MY LIBRARY & BOOKMARKS ─────────────────── -->
+        <div id="content-library" class="hidden space-y-6">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 dark:text-white">My Saved Research Library</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Manage bookmarks, reading status, research annotations, and export citations.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="exportLibraryBibtex()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2 rounded-xl shadow-sm transition flex items-center space-x-1.5">
+                            <span>📥</span><span>Export Library (.bib)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bookmarked Papers List -->
+                <div id="bookmarksList" class="mt-6 space-y-4">
+                    <div class="text-center py-12 text-slate-400 text-sm">No saved papers yet. Bookmark papers from recommendations or the citation graph!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─────────────────── TAB 5: LIVE ARXIV IMPORT ─────────────────── -->
+        <div id="content-arxiv" class="hidden space-y-6">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors">
+                <div class="max-w-2xl">
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-white">Search & Ingest Live arXiv Papers</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Directly query the official arXiv API to find cutting-edge preprints and import them with 1 click into your local citation database and network graph.</p>
+                </div>
+
+                <div class="mt-5 flex gap-2">
+                    <input type="text" id="arxivQuery" placeholder="Search arXiv preprints (e.g. quantum machine learning, mamba state space models)..."
+                        class="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 transition"
+                        value="state space models mamba">
+                    <button onclick="searchArxiv()" id="arxivBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-6 py-3 rounded-2xl transition">
+                        Search arXiv
+                    </button>
+                </div>
+
+                <div id="arxivResults" class="mt-6 space-y-4"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Paper Details & Citations -->
+    <div id="paperModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span id="modalPaperBadge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">Paper Details</span>
+                <button onclick="closePaperModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold">&times;</button>
+            </div>
+            <div id="modalPaperBody" class="mt-4 space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-1 text-xs">
+                <!-- Injected via JS -->
+            </div>
+            <div class="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end space-x-3">
+                <button id="modalCiteBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium px-4 py-2 rounded-xl transition">
+                    Cite Paper
+                </button>
+                <button id="modalBookmarkBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                    Bookmark
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Paper Citation (BibTeX / APA) -->
+    <div id="citationModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="font-bold text-slate-800 dark:text-white text-base">Cite Research Paper</h3>
+                <button onclick="closeCitationModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold">&times;</button>
+            </div>
+            <div class="mt-4 space-y-4">
+                <div>
+                    <span class="text-xs font-semibold text-slate-500 uppercase">BibTeX Format</span>
+                    <textarea id="bibtexContent" readonly class="mt-1 w-full h-36 bg-slate-950 text-indigo-300 font-mono text-xs p-3.5 rounded-2xl border border-slate-800 focus:outline-none"></textarea>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-slate-500 uppercase">APA 7th Reference</span>
+                    <div id="apaContent" class="mt-1 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 font-sans"></div>
+                </div>
+            </div>
+            <div class="mt-5 flex justify-end space-x-3">
+                <button onclick="copyBibtex()" id="copyBibBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                    Copy BibTeX
+                </button>
+                <button onclick="closeCitationModal()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium px-4 py-2 rounded-xl">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: User Interests Configuration -->
+    <div id="interestsModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="font-bold text-slate-800 dark:text-white text-base">Edit User Profile Interests</h3>
+                <button onclick="closeInterestsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold">&times;</button>
+            </div>
+            <div class="mt-4 space-y-3">
+                <p class="text-xs text-slate-500 dark:text-slate-400">Provide comma-separated research topics to personalize recommendation scoring.</p>
+                <textarea id="userInterestsInput" rows="3" class="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500"></textarea>
+            </div>
+            <div class="mt-5 flex justify-end space-x-2">
+                <button onclick="saveUserInterests()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                    Save Profile
+                </button>
+                <button onclick="closeInterestsModal()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium px-4 py-2 rounded-xl">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Toast Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">
+        <p class="font-semibold text-slate-700 dark:text-slate-300">Smart Research Paper Recommendation & Citation Graph System (SRPS v2.0)</p>
+        <p class="mt-1">KL University · Dept. of Computer Science & Engineering · Section A7 · Group 5</p>
+        <p class="mt-1 text-[11px] text-slate-400 dark:text-slate-500">Team: Abhinay Sai (2510030103) · K V Srinath (2510030106) · Poli Naidu (2510030160) · Chandu (2510030083)</p>
+    </footer>
+
+    <!-- Client-Side Application Logic -->
+    <script>
+        const $ = id => document.getElementById(id);
+        let cy = null;
+        let allPapersMap = {};
+        let activeTab = 'recommend';
+        let currentUser = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initAuth();
+            loadPapersMetadata();
+            triggerSearch();
+            loadBookmarks();
+        });
+
+        // ── THEME TOGGLE (DARK / LIGHT) ──
+        function initTheme() {
+            const saved = localStorage.getItem('srps_theme') || 'light';
+            if (saved === 'dark') {
+                document.documentElement.classList.add('dark');
+                $('themeIcon').textContent = '☀️';
+            } else {
+                document.documentElement.classList.remove('dark');
+                $('themeIcon').textContent = '🌙';
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('srps_theme', isDark ? 'dark' : 'light');
+            $('themeIcon').textContent = isDark ? '☀️' : '🌙';
+            showToast(isDark ? 'Dark theme enabled' : 'Light theme enabled');
+        }
+
+        // ── TOAST NOTIFICATIONS ──
+        function showToast(message, isError = false) {
+            const container = $('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg backdrop-blur-md transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto flex items-center space-x-2 ${
+                isError
+                    ? 'bg-rose-900/90 text-rose-100 border border-rose-700'
+                    : 'bg-slate-900/90 dark:bg-indigo-950/90 text-white border border-slate-700'
+            }`;
+            toast.innerHTML = `<span>${isError ? '⚠️' : '✓'}</span><span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // ── AUTHENTICATION STATE ──
+        function initAuth() {
+            const stored = localStorage.getItem('srps_active_user');
+            if (stored) {
+                try {
+                    currentUser = JSON.parse(stored);
+                } catch(e) { currentUser = null; }
+            } else {
+                // Default to Alice as active demo user
+                currentUser = { userId: 1, username: 'alice', interests: 'machine learning, deep learning, neural networks' };
+                localStorage.setItem('srps_active_user', JSON.stringify(currentUser));
+            }
+            renderAuthWidget();
+        }
+
+        function renderAuthWidget() {
+            const container = $('authContainer');
+            if (currentUser && currentUser.userId) {
+                container.innerHTML = `
+                    <div class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-bold text-xs flex items-center justify-center uppercase">
+                            ${currentUser.username[0]}
+                        </div>
+                        <div class="hidden sm:block text-left text-xs pr-1">
+                            <div class="font-bold text-slate-800 dark:text-slate-100 capitalize">${currentUser.username}</div>
+                            <div class="text-[10px] text-slate-400 truncate max-w-[100px]">${currentUser.interests || 'Researcher'}</div>
+                        </div>
+                        <button onclick="openInterestsModal()" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Edit Profile">
+                            ⚙️
+                        </button>
+                        <button onclick="logout()" class="text-xs bg-slate-200 dark:bg-slate-700 hover:bg-rose-500 hover:text-white text-slate-700 dark:text-slate-300 font-medium px-2 py-1 rounded-lg transition" title="Log Out">
+                            Sign Out
+                        </button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <a href="/login" class="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-sm transition">
+                        Sign In / Register
+                    </a>
+                `;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('srps_active_user');
+            currentUser = null;
+            renderAuthWidget();
+            showToast('Signed out successfully');
+            triggerSearch();
+            loadBookmarks();
+        }
+
+        function getActiveUserId() {
+            return currentUser ? currentUser.userId : null;
+        }
+
+        // ── TAB SWITCHING ──
+        function switchTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            ['recommend', 'network', 'analytics', 'library', 'arxiv'].forEach(t => {
+                const el = $('content-' + t);
+                if (el) el.classList.add('hidden');
+            });
+
+            $('tab-' + tab).classList.add('active');
+            $('content-' + tab).classList.remove('hidden');
+
+            if (tab === 'network') {
+                setTimeout(() => initOrResizeGraph(), 100);
+            } else if (tab === 'analytics') {
+                loadAnalytics();
+            } else if (tab === 'library') {
+                loadBookmarks();
+            }
+        }
+
+        function setQuery(q) {
+            $('searchInput').value = q;
+            triggerSearch();
+        }
+
+        // Fetch All Papers for lookups
+        async function loadPapersMetadata() {
+            try {
+                const res = await fetch('/api/papers');
+                const data = await res.json();
+                if (data.papers) {
+                    data.papers.forEach(p => allPapersMap[p.id] = p);
+                    populatePathDropdowns(data.papers);
+                }
+            } catch(e) { console.error('Failed to load papers metadata', e); }
+        }
+
+        function populatePathDropdowns(papers) {
+            const p1 = $('pathSource');
+            const p2 = $('pathTarget');
+            if (!p1 || !p2) return;
+            p1.innerHTML = '';
+            p2.innerHTML = '';
+            papers.forEach((p, idx) => {
+                const opt1 = new Option(`${p.id}. ${p.title.substring(0, 35)}...`, p.id);
+                const opt2 = new Option(`${p.id}. ${p.title.substring(0, 35)}...`, p.id);
+                p1.add(opt1);
+                p2.add(opt2);
+            });
+            if (papers.length > 5) p2.selectedIndex = 5;
+        }
+
+        // ── SEARCH & RECOMMENDATIONS ──
+        async function triggerSearch() {
+            const query = $('searchInput').value.trim();
+            if (!query) return;
+
+            const userId = getActiveUserId();
+            const algorithm = $('algoSelect').value || 'hybrid';
+            const wContent = parseFloat($('weightContent').value);
+            const wCitation = parseFloat($('weightCitation').value);
+            const wUser = parseFloat($('weightUser').value);
+            const wRecency = parseFloat($('weightRecency').value);
+
+            $('searchBtn').disabled = true;
+            $('searchBtn').innerHTML = '<span class="animate-spin">⏳</span><span>Ranking...</span>';
+            $('resultsList').innerHTML = '<div class="text-center py-12 text-slate-500 text-sm">Computing multi-signal recommendations...</div>';
+
+            try {
+                const res = await fetch('/api/recommend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: query,
+                        user_id: userId ? parseInt(userId) : null,
+                        top_k: 12,
+                        algorithm: algorithm,
+                        weights: {
+                            content: wContent,
+                            citation: wCitation,
+                            user_interest: wUser,
+                            recency: wRecency
+                        }
+                    })
+                });
+
+                const data = await res.json();
+                if (data.error) {
+                    $('resultsList').innerHTML = `<div class="p-4 bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-2xl text-sm">⚠️ ${data.error}</div>`;
+                    return;
+                }
+
+                $('resultsCount').textContent = `${data.results.length} papers`;
+                $('activeAlgoBadge').textContent = algorithm.toUpperCase();
+
+                if (!data.results || data.results.length === 0) {
+                    $('resultsList').innerHTML = '<div class="text-center py-12 text-slate-400">No matching research papers found.</div>';
+                    return;
+                }
+
+                $('resultsList').innerHTML = data.results.map((r, idx) => `
+                    <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all flex flex-col md:flex-row gap-4">
+                        <!-- Rank & Score Badge -->
+                        <div class="flex md:flex-col items-center justify-between md:justify-center md:w-24 shrink-0 p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800/80 text-center">
+                            <span class="text-xs font-bold text-slate-400">RANK #${idx + 1}</span>
+                            <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 my-1">${r.final_score.toFixed(3)}</div>
+                            <span class="text-[10px] text-slate-500 font-medium">Relevance</span>
+                        </div>
+
+                        <!-- Paper Metadata & Content -->
+                        <div class="flex-1">
+                            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                <h3 class="text-base font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer flex-1" onclick="openPaperModal(${r.paper_id})">
+                                    ${r.title}
+                                </h3>
+                                <a href="${r.url}" target="_blank" rel="noopener noreferrer" class="shrink-0 inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition" title="Open external paper source">
+                                    <span>Read Paper</span>
+                                    <span>↗</span>
+                                </a>
+                            </div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                                <span class="font-medium text-slate-700 dark:text-slate-300">✍️ ${r.authors}</span>
+                                <span>📅 ${r.year}</span>
+                                <span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md font-mono">${r.venue}</span>
+                            </div>
+                            <p class="text-xs text-slate-600 dark:text-slate-300 mt-2.5 line-clamp-3 leading-relaxed">
+                                ${r.abstract}
+                            </p>
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                ${(r.keywords || '').split(',').map(k => `<span class="bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10px] px-2 py-0.5 rounded-full font-medium">${k.trim()}</span>`).join('')}
+                            </div>
+
+                            <!-- Signal Breakdown Chips & Direct Paper Links -->
+                            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-[11px]">
+                                <span class="text-slate-500 dark:text-slate-400 font-medium">Breakdown:</span>
+                                <span class="bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-md font-medium">Content: ${r.content_score.toFixed(3)}</span>
+                                <span class="bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-md font-medium">Citation: ${r.citation_score.toFixed(3)}</span>
+                                <span class="bg-pink-50 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded-md font-medium">Profile: ${r.user_score.toFixed(3)}</span>
+                                ${r.recency_score ? `<span class="bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md font-medium">Recency: ${r.recency_score.toFixed(3)}</span>` : ''}
+
+                                <!-- Action Buttons including Paper Link and PDF -->
+                                <div class="ml-auto flex items-center space-x-1.5">
+                                    <a href="${r.url}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-white hover:bg-indigo-600 dark:hover:bg-indigo-600 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 transition flex items-center space-x-1" title="Open paper link">
+                                        <span>🔗 Link</span>
+                                        <span>↗</span>
+                                    </a>
+                                    ${r.pdf_url ? `
+                                    <a href="${r.pdf_url}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 transition flex items-center space-x-1" title="Download PDF">
+                                        <span>📄 PDF</span>
+                                        <span>↗</span>
+                                    </a>` : ''}
+                                    <a href="${r.scholar_url}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-600 dark:text-slate-300 hover:text-indigo-600 font-medium px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 transition" title="Search on Google Scholar">
+                                        Scholar
+                                    </a>
+                                    <button onclick="bookmarkPaper(${r.paper_id})" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 font-medium px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition">
+                                        🔖 Save
+                                    </button>
+                                    <button onclick="openCitationModal(${r.paper_id})" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 font-medium px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition">
+                                        Cite
+                                    </button>
+                                    <button onclick="viewPaperInGraph(${r.paper_id})" class="text-indigo-600 dark:text-indigo-400 font-semibold px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 transition">
+                                        Graph ➔
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                $('resultsList').innerHTML = `<div class="p-4 bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-2xl text-sm">Failed to fetch recommendations: ${err.message}</div>`;
+            } finally {
+                $('searchBtn').disabled = false;
+                $('searchBtn').innerHTML = '<span>Search & Rank</span>';
+            }
+        }
+
+        // ── CYTOSCAPE CITATION GRAPH ──
+        async function initOrResizeGraph() {
+            if (!cy) {
+                await initCitationGraph();
+            } else {
+                cy.resize();
+                cy.fit();
+            }
+        }
+
+        async function initCitationGraph() {
+            try {
+                const res = await fetch('/api/graph/data');
+                const graphData = await res.json();
+
+                const clusterColors = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4'];
+
+                const elements = [];
+                graphData.nodes.forEach(n => {
+                    const color = clusterColors[n.community % clusterColors.length] || '#6366f1';
+                    const size = Math.max(26, Math.min(64, Math.round(n.pagerank * 800) + 20));
+                    elements.push({
+                        data: {
+                            id: String(n.id),
+                            name: `${n.id}. ${n.title.substring(0, 20)}...`,
+                            fullTitle: n.title,
+                            authors: n.authors,
+                            year: n.year,
+                            venue: n.venue,
+                            abstract: n.abstract,
+                            pagerank: n.pagerank,
+                            authScore: n.authority_score,
+                            hubScore: n.hub_score,
+                            color: color,
+                            size: size
+                        }
+                    });
+                });
+
+                graphData.edges.forEach(e => {
+                    elements.push({
+                        data: {
+                            id: `e_${e.source}_${e.target}`,
+                            source: String(e.source),
+                            target: String(e.target)
+                        }
+                    });
+                });
+
+                cy = cytoscape({
+                    container: $('cy'),
+                    elements: elements,
+                    style: [
+                        {
+                            selector: 'node',
+                            style: {
+                                'label': 'data(name)',
+                                'color': '#cbd5e1',
+                                'font-size': '10px',
+                                'background-color': 'data(color)',
+                                'width': 'data(size)',
+                                'height': 'data(size)',
+                                'text-valign': 'bottom',
+                                'text-margin-y': 4
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'width': 1.5,
+                                'line-color': '#334155',
+                                'target-arrow-color': '#475569',
+                                'target-arrow-shape': 'triangle',
+                                'curve-style': 'bezier',
+                                'arrow-scale': 0.8
+                            }
+                        },
+                        {
+                            selector: 'node:selected',
+                            style: {
+                                'border-width': 4,
+                                'border-color': '#ffffff',
+                                'color': '#ffffff',
+                                'font-weight': 'bold',
+                                'font-size': '12px'
+                            }
+                        },
+                        {
+                            selector: '.highlighted-edge',
+                            style: {
+                                'line-color': '#fbbf24',
+                                'target-arrow-color': '#fbbf24',
+                                'width': 4,
+                                'z-index': 99
+                            }
+                        },
+                        {
+                            selector: '.highlighted-node',
+                            style: {
+                                'border-width': 4,
+                                'border-color': '#fbbf24',
+                                'z-index': 100
+                            }
+                        }
+                    ],
+                    layout: {
+                        name: 'cose',
+                        animate: false,
+                        randomize: false,
+                        componentSpacing: 100,
+                        nodeOverlap: 20
+                    }
+                });
+
+                cy.on('tap', 'node', function(evt){
+                    const node = evt.target;
+                    displayNodeInspector(node.data());
+                });
+
+            } catch (e) {
+                console.error('Failed to load citation graph', e);
+            }
+        }
+
+        function displayNodeInspector(d) {
+            $('nodeBadge').textContent = `Paper ID #${d.id}`;
+            $('inspectorContent').innerHTML = `
+                <div>
+                    <h4 class="font-bold text-slate-800 dark:text-white text-sm leading-snug">${d.fullTitle}</h4>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">${d.authors} · ${d.year} · <span class="font-mono">${d.venue}</span></p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-center py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <div>
+                        <div class="text-[10px] text-slate-400">PageRank</div>
+                        <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400">${Number(d.pagerank).toFixed(4)}</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-400">Authority Score</div>
+                        <div class="text-xs font-bold text-emerald-600 dark:text-emerald-400">${Number(d.authScore || 0).toFixed(4)}</div>
+                    </div>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">Abstract</span>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mt-1 max-h-48 overflow-y-auto custom-scrollbar">${d.abstract}</p>
+                </div>
+            `;
+            $('inspectorActions').classList.remove('hidden');
+            const paperUrl = d.url || (allPapersMap[d.id] && allPapersMap[d.id].url) || `https://scholar.google.com/scholar?q=${encodeURIComponent(d.fullTitle)}`;
+            $('inspectPaperLink').href = paperUrl;
+            $('inspectRecommendBtn').onclick = () => {
+                switchTab('recommend');
+                setQuery(d.fullTitle);
+            };
+            $('inspectCiteBtn').onclick = () => openCitationModal(parseInt(d.id));
+        }
+
+        function viewPaperInGraph(paperId) {
+            switchTab('network');
+            setTimeout(() => {
+                if (cy) {
+                    const node = cy.$(`node[id="${paperId}"]`);
+                    if (node.length > 0) {
+                        cy.center(node);
+                        cy.zoom({ level: 1.5, position: node.position() });
+                        node.select();
+                        displayNodeInspector(node.data());
+                    }
+                }
+            }, 300);
+        }
+
+        function resetGraphView() {
+            if (cy) {
+                cy.fit();
+                cy.center();
+            }
+        }
+
+        function runLayout(name) {
+            if (cy) {
+                cy.layout({ name: name, animate: true, animationDuration: 500 }).run();
+            }
+        }
+
+        async function computeShortestPath() {
+            const s = $('pathSource').value;
+            const t = $('pathTarget').value;
+            if (!s || !t || s === t) return;
+
+            clearShortestPathHighlight();
+            try {
+                const res = await fetch(`/api/graph/path?source_id=${s}&target_id=${t}`);
+                const data = await res.json();
+
+                if (!data.path || data.path.length === 0) {
+                    $('pathResultText').textContent = 'No connected path found between these papers.';
+                    return;
+                }
+
+                $('pathResultText').textContent = `Path Length: ${data.length} (${data.path.join(' ➔ ')})`;
+
+                for (let i = 0; i < data.path.length; i++) {
+                    const pid = String(data.path[i]);
+                    const node = cy.$(`node[id="${pid}"]`);
+                    node.addClass('highlighted-node');
+
+                    if (i < data.path.length - 1) {
+                        const nextPid = String(data.path[i+1]);
+                        const edge = cy.$(`edge[source="${pid}"][target="${nextPid}"], edge[source="${nextPid}"][target="${pid}"]`);
+                        edge.addClass('highlighted-edge');
+                    }
+                }
+                cy.fit(cy.$('.highlighted-node, .highlighted-edge'));
+            } catch(e) { console.error('Shortest path error', e); }
+        }
+
+        function clearShortestPathHighlight() {
+            if (cy) {
+                cy.elements().removeClass('highlighted-node').removeClass('highlighted-edge');
+            }
+            $('pathResultText').textContent = '';
+        }
+
+        // ── DSA GRAPH ANALYTICS ──
+        async function loadAnalytics() {
+            try {
+                const res = await fetch('/api/graph/analytics');
+                const data = await res.json();
+
+                $('kpiNodes').textContent = data.total_nodes;
+                $('kpiEdges').textContent = data.total_edges;
+                $('kpiDensity').textContent = data.density;
+                $('kpiDegree').textContent = data.avg_degree;
+                $('kpiComm').textContent = data.communities_count;
+
+                const renderLeaderboard = (list, valKey) => list.map((item, i) => {
+                    const p = allPapersMap[item.paper_id] || {};
+                    return `
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                            <div class="truncate max-w-[200px]">
+                                <span class="font-bold text-slate-700 dark:text-slate-300">#${i + 1}</span>
+                                <span class="ml-1 text-slate-800 dark:text-slate-100 font-medium">${p.title || `Paper #${item.paper_id}`}</span>
+                            </div>
+                            <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold text-xs">${item[valKey]}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                $('topPageRankList').innerHTML = renderLeaderboard(data.top_pagerank || [], 'score');
+                $('topAuthoritiesList').innerHTML = renderLeaderboard(data.top_authorities || [], 'score');
+                $('topHubsList').innerHTML = renderLeaderboard(data.top_hubs || [], 'score');
+
+            } catch(e) { console.error('Analytics error', e); }
+        }
+
+        // ── BOOKMARKS & LIBRARY ──
+        async function loadBookmarks() {
+            const userId = getActiveUserId() || 1;
+            try {
+                const res = await fetch(`/api/bookmarks?user_id=${userId}`);
+                const data = await res.json();
+                $('bookmarkCountBadge').textContent = (data.bookmarks || []).length;
+
+                if (!data.bookmarks || data.bookmarks.length === 0) {
+                    $('bookmarksList').innerHTML = '<div class="text-center py-12 text-slate-400 text-sm">No saved papers yet. Bookmark papers from recommendations or the citation graph!</div>';
+                    return;
+                }
+
+                $('bookmarksList').innerHTML = data.bookmarks.map(b => `
+                    <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-semibold px-2.5 py-0.5 rounded-full">${b.status.replace('_', ' ').toUpperCase()}</span>
+                                <span class="text-xs text-slate-400">Saved on ${b.created_at || 'Recently'}</span>
+                            </div>
+                            <h4 class="text-base font-bold text-slate-900 dark:text-white mt-1 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition" onclick="openPaperModal(${b.paper_id})">${b.title}</h4>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">${b.authors} · ${b.year} · ${b.venue}</p>
+                            ${b.notes ? `<p class="text-xs text-slate-600 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl italic">📝 "${b.notes}"</p>` : ''}
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <a href="${b.url}" target="_blank" rel="noopener noreferrer" class="text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-semibold px-3 py-2 rounded-xl hover:bg-indigo-600 hover:text-white transition flex items-center space-x-1">
+                                <span>🔗 Paper</span>
+                                <span>↗</span>
+                            </a>
+                            ${b.pdf_url ? `
+                            <a href="${b.pdf_url}" target="_blank" rel="noopener noreferrer" class="text-xs bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-semibold px-3 py-2 rounded-xl hover:bg-rose-600 hover:text-white transition flex items-center space-x-1">
+                                <span>📄 PDF</span>
+                                <span>↗</span>
+                            </a>` : ''}
+                            <button onclick="openCitationModal(${b.paper_id})" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3.5 py-2 rounded-xl transition">
+                                Cite
+                            </button>
+                            <button onclick="removeBookmark(${b.paper_id})" class="text-xs bg-rose-50 dark:bg-rose-950/80 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 font-medium px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-800 transition">
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch(e) { console.error('Bookmarks load error', e); }
+        }
+
+        async function bookmarkPaper(paperId) {
+            const userId = getActiveUserId() || 1;
+            try {
+                const res = await fetch('/api/bookmarks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: parseInt(userId), paper_id: paperId, status: 'to_read' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Paper saved to your library!');
+                    loadBookmarks();
+                }
+            } catch(e) { showToast('Error saving bookmark', true); }
+        }
+
+        async function removeBookmark(paperId) {
+            const userId = getActiveUserId() || 1;
+            if (!confirm('Remove paper from library?')) return;
+            try {
+                await fetch(`/api/bookmarks/${paperId}?user_id=${userId}`, { method: 'DELETE' });
+                showToast('Removed from library');
+                loadBookmarks();
+            } catch(e) { showToast('Error removing bookmark', true); }
+        }
+
+        function exportLibraryBibtex() {
+            const userId = getActiveUserId() || 1;
+            window.open(`/api/export/bibtex?user_id=${userId}`, '_blank');
+        }
+
+        // ── PAPER DETAIL MODAL ──
+        async function openPaperModal(paperId) {
+            try {
+                const res = await fetch(`/api/papers/${paperId}`);
+                const data = await res.json();
+                const p = data.paper;
+
+                $('modalPaperBadge').textContent = `Paper #${p.id} · ${p.year}`;
+                $('modalPaperBody').innerHTML = `
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">${p.title}</h3>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">${p.authors} · <span class="font-semibold text-slate-700 dark:text-slate-300">${p.venue}</span> (${p.year})</p>
+                        ${p.doi ? `<p class="text-slate-400 font-mono mt-0.5">DOI: <a href="https://doi.org/${p.doi}" target="_blank" class="text-indigo-600 dark:text-indigo-400 underline">${p.doi}</a></p>` : ''}
+
+                        <!-- Prominent Paper Links -->
+                        <div class="mt-3 flex flex-wrap items-center gap-2">
+                            <a href="${p.url}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3.5 py-1.5 rounded-xl text-xs flex items-center space-x-1 shadow-sm transition">
+                                <span>🔗 Read Full Paper</span>
+                                <span>↗</span>
+                            </a>
+                            ${p.pdf_url ? `
+                            <a href="${p.pdf_url}" target="_blank" rel="noopener noreferrer" class="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3.5 py-1.5 rounded-xl text-xs flex items-center space-x-1 shadow-sm transition">
+                                <span>📄 Download PDF</span>
+                                <span>↗</span>
+                            </a>` : ''}
+                            <a href="${p.scholar_url}" target="_blank" rel="noopener noreferrer" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3 py-1.5 rounded-xl text-xs flex items-center space-x-1 transition">
+                                <span>🎓 Google Scholar</span>
+                                <span>↗</span>
+                            </a>
+                            <a href="${p.semantic_scholar_url}" target="_blank" rel="noopener noreferrer" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3 py-1.5 rounded-xl text-xs flex items-center space-x-1 transition">
+                                <span>🔬 Semantic Scholar</span>
+                                <span>↗</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Abstract</span>
+                        <p class="text-slate-700 dark:text-slate-300 leading-relaxed mt-1 text-xs">${p.abstract}</p>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Keywords</span>
+                        <div class="mt-1 flex flex-wrap gap-1.5">
+                            ${(p.keywords || '').split(',').map(k => `<span class="bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-[10px]">${k.trim()}</span>`).join('')}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <span class="font-bold text-slate-700 dark:text-slate-300 block mb-1">Cited By (${data.cited_by_paper_ids.length} papers):</span>
+                            <div class="text-[11px] text-slate-500 space-y-1">
+                                ${data.cited_by_paper_ids.length > 0
+                                    ? data.cited_by_paper_ids.slice(0, 5).map(id => `<div class="truncate cursor-pointer hover:text-indigo-600" onclick="openPaperModal(${id})">📄 ${allPapersMap[id]?.title || `Paper #${id}`}</div>`).join('')
+                                    : 'None recorded'}
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <span class="font-bold text-slate-700 dark:text-slate-300 block mb-1">References (${data.references_paper_ids.length} papers):</span>
+                            <div class="text-[11px] text-slate-500 space-y-1">
+                                ${data.references_paper_ids.length > 0
+                                    ? data.references_paper_ids.slice(0, 5).map(id => `<div class="truncate cursor-pointer hover:text-indigo-600" onclick="openPaperModal(${id})">📄 ${allPapersMap[id]?.title || `Paper #${id}`}</div>`).join('')
+                                    : 'None recorded'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                $('modalCiteBtn').onclick = () => openCitationModal(paperId);
+                $('modalBookmarkBtn').onclick = () => bookmarkPaper(paperId);
+
+                $('paperModal').classList.remove('hidden');
+            } catch(e) { console.error('Paper modal error', e); }
+        }
+
+        function closePaperModal() {
+            $('paperModal').classList.add('hidden');
+        }
+
+        // ── LIVE ARXIV SEARCH & INGEST ──
+        async function searchArxiv() {
+            const query = $('arxivQuery').value.trim();
+            if (!query) return;
+
+            $('arxivBtn').disabled = true;
+            $('arxivBtn').textContent = 'Querying arXiv API...';
+            $('arxivResults').innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">Contacting arXiv export service...</div>';
+
+            try {
+                const res = await fetch(`/api/arxiv/search?query=${encodeURIComponent(query)}&max_results=5`);
+                const data = await res.json();
+
+                if (!data.results || data.results.length === 0 || data.results[0].error) {
+                    $('arxivResults').innerHTML = `<div class="p-4 bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-2xl text-xs">⚠️ ${data.results?.[0]?.error || 'No results found on arXiv.'}</div>`;
+                    return;
+                }
+
+                $('arxivResults').innerHTML = data.results.map((r, i) => `
+                    <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold">arXiv:${r.arxiv_id || 'preprint'}</span>
+                                <span class="text-xs text-slate-400">${r.year}</span>
+                            </div>
+                            <h4 class="text-base font-bold text-slate-900 dark:text-white mt-1">${r.title}</h4>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">${r.authors} · ${r.venue}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-300 mt-2 line-clamp-2">${r.abstract}</p>
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium px-3.5 py-2.5 rounded-xl transition">📄 PDF</a>` : ''}
+                            <button onclick="importArxivPaper(${i})" id="importBtn_${i}" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2.5 rounded-xl transition">
+                                + Ingest into Graph
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                window.lastArxivResults = data.results;
+
+            } catch(e) {
+                $('arxivResults').innerHTML = `<div class="p-4 bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-2xl text-xs">Error: ${e.message}</div>`;
+            } finally {
+                $('arxivBtn').disabled = false;
+                $('arxivBtn').textContent = 'Search arXiv';
+            }
+        }
+
+        async function importArxivPaper(idx) {
+            const paper = (window.lastArxivResults || [])[idx];
+            if (!paper) return;
+
+            const btn = $(`importBtn_${idx}`);
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+
+            try {
+                const res = await fetch('/api/arxiv/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(paper)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    btn.classList.add('bg-emerald-600', 'text-white');
+                    btn.textContent = '✓ Ingested!';
+                    loadPapersMetadata();
+                    showToast(`Paper imported as #${data.paper_id}! Citation graph linked.`);
+                } else {
+                    showToast(data.error || 'Failed to import paper', true);
+                    btn.disabled = false;
+                    btn.textContent = '+ Ingest into Graph';
+                }
+            } catch(e) {
+                showToast('Error importing paper', true);
+                btn.disabled = false;
+                btn.textContent = '+ Ingest into Graph';
+            }
+        }
+
+        // ── CITATION MODAL ──
+        async function openCitationModal(paperId) {
+            const p = allPapersMap[paperId];
+            if (!p) return;
+
+            try {
+                const res = await fetch(`/api/export/bibtex?paper_id=${paperId}`);
+                const data = await res.text();
+                $('bibtexContent').value = data;
+            } catch(e) {
+                $('bibtexContent').value = `@article{paper${paperId},\n  title = {${p.title}},\n  author = {${p.authors}},\n  year = {${p.year}}\n}`;
+            }
+
+            $('apaContent').innerHTML = `<b>${p.authors}</b> (${p.year}). <i>${p.title}</i>. ${p.venue}. ${p.doi ? `https://doi.org/${p.doi}` : ''}`;
+            $('citationModal').classList.remove('hidden');
+        }
+
+        function closeCitationModal() {
+            $('citationModal').classList.add('hidden');
+        }
+
+        function copyBibtex() {
+            const copyText = $('bibtexContent');
+            copyText.select();
+            navigator.clipboard.writeText(copyText.value);
+            const btn = $('copyBibBtn');
+            btn.textContent = '✓ Copied!';
+            showToast('BibTeX copied to clipboard!');
+            setTimeout(() => btn.textContent = 'Copy BibTeX', 2000);
+        }
+
+        // ── USER INTERESTS MODAL ──
+        function openInterestsModal() {
+            $('userInterestsInput').value = (currentUser && currentUser.interests) ? currentUser.interests : 'machine learning, deep learning, computer vision';
+            $('interestsModal').classList.remove('hidden');
+        }
+
+        function closeInterestsModal() {
+            $('interestsModal').classList.add('hidden');
+        }
+
+        async function saveUserInterests() {
+            const userId = getActiveUserId() || 1;
+            const interests = $('userInterestsInput').value.trim();
+
+            try {
+                await fetch('/api/user/interests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: parseInt(userId), interests: interests })
+                });
+
+                if (currentUser) {
+                    currentUser.interests = interests;
+                    localStorage.setItem('srps_active_user', JSON.stringify(currentUser));
+                    renderAuthWidget();
+                }
+
+                closeInterestsModal();
+                triggerSearch();
+                showToast('Research interests profile updated!');
+            } catch(e) { showToast('Failed to update interests', true); }
+        }
+    </script>
+</body>
+</html>

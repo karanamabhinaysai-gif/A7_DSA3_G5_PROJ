@@ -2,20 +2,20 @@
 user_matching.py — User interest matching and history-based boosting.
 
 Computes how well each paper aligns with a user's stated interests
-and their reading history.
+and their reading history using lexical and vector space similarity.
 """
 
+from typing import Dict, List, Optional
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def compute_user_interest_score(user, papers):
+def compute_user_interest_score(user: Optional[Dict], papers: List[Dict]) -> Dict[int, float]:
     """
     Compute interest-match scores between user interests and papers.
 
-    Matches user interest phrases (e.g. "machine learning") against paper
-    title, keywords, and abstract using substring matching. This handles
-    both single-word and multi-word interest terms.
+    Uses a blend of multi-word phrase matching and token overlap against
+    paper title, keywords, and abstract.
 
     Args:
         user: dict with 'interests' (comma-separated string)
@@ -27,29 +27,45 @@ def compute_user_interest_score(user, papers):
     if not user or not user.get('interests'):
         return {p['id']: 0.0 for p in papers}
 
-    # Parse user interests into individual phrases
-    user_interests = [i.strip().lower() for i in user['interests'].split(',') if i.strip()]
-    if not user_interests:
+    raw_interests = [i.strip().lower() for i in user['interests'].split(',') if i.strip()]
+    if not raw_interests:
         return {p['id']: 0.0 for p in papers}
 
     scores = {}
     for paper in papers:
-        # Combine all text fields for matching
-        text = ' '.join([
-            paper.get('title', ''),
-            paper.get('keywords', ''),
-            paper.get('abstract', ''),
-        ]).lower()
+        title = (paper.get('title') or '').lower()
+        keywords = (paper.get('keywords') or '').lower()
+        abstract = (paper.get('abstract') or '').lower()
+        text = f"{title} {keywords} {abstract}"
 
-        # Count how many user interests appear in the paper text
-        matches = sum(1 for interest in user_interests if interest in text)
-        score = matches / len(user_interests)
-        scores[paper['id']] = min(1.0, score)
+        match_count = 0.0
+        for interest in raw_interests:
+            # High reward for keyword and title matches
+            if interest in title:
+                match_count += 1.0
+            elif interest in keywords:
+                match_count += 0.8
+            elif interest in text:
+                match_count += 0.6
+            else:
+                # Sub-token overlap
+                tokens = interest.split()
+                if tokens and all(t in text for t in tokens):
+                    match_count += 0.4
+
+        score = match_count / len(raw_interests)
+        scores[paper['id']] = min(1.0, round(score, 4))
 
     return scores
 
 
-def compute_history_boost(user_history_paper_ids, papers, tfidf_matrix, vectorizer, paper_ids):
+def compute_history_boost(
+    user_history_paper_ids: List[int],
+    papers: List[Dict],
+    tfidf_matrix,
+    vectorizer,
+    paper_ids: List[int],
+) -> Dict[int, float]:
     """
     Boost scores for papers similar to the user's previously viewed papers.
 
@@ -80,4 +96,4 @@ def compute_history_boost(user_history_paper_ids, papers, tfidf_matrix, vectoriz
 
     max_score = np.max(sim_scores) if len(sim_scores) > 0 and np.max(sim_scores) > 0 else 1.0
 
-    return {pid: float(score) / max_score for pid, score in zip(paper_ids, sim_scores)}
+    return {pid: round(float(score) / max_score, 4) for pid, score in zip(paper_ids, sim_scores)}

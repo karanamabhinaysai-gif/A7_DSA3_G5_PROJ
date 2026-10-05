@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In & Register — Smart Research Paper Recommendation System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans selection:bg-indigo-500 selection:text-white">
+
+    <!-- Top Bar -->
+    <header class="max-w-6xl w-full mx-auto px-6 py-6 flex items-center justify-between">
+        <a href="/" class="flex items-center space-x-3 group">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            </div>
+            <div>
+                <span class="text-base font-bold text-white tracking-tight">SRPS <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v2.0</span></span>
+                <p class="text-[11px] text-slate-400">Research Paper Recommendation & Citation Graph</p>
+            </div>
+        </a>
+
+        <a href="/" class="text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700 px-3.5 py-2 rounded-xl transition flex items-center space-x-1.5 shadow-sm">
+            <span>←</span>
+            <span>Back to Explorer</span>
+        </a>
+    </header>
+
+    <!-- Main Auth Card Container -->
+    <main class="flex-1 flex items-center justify-center px-4 py-8">
+        <div class="max-w-md w-full bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl shadow-indigo-950/50">
+
+            <!-- Tabs: Login vs Register -->
+            <div class="flex rounded-2xl bg-slate-950/60 p-1 border border-slate-800/80 mb-6">
+                <button onclick="switchMode('login')" id="tabBtnLogin" class="flex-1 py-2 text-xs font-semibold rounded-xl transition bg-indigo-600 text-white shadow-sm">
+                    Sign In
+                </button>
+                <button onclick="switchMode('register')" id="tabBtnRegister" class="flex-1 py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-slate-200">
+                    Create Account
+                </button>
+            </div>
+
+            <!-- Dynamic Alert Message Banner -->
+            <div id="alertBox" class="hidden mb-4 p-3.5 rounded-xl text-xs flex items-center space-x-2"></div>
+
+            <!-- ── FORM 1: LOGIN ── -->
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Username</label>
+                    <input type="text" id="loginUsername" required autocomplete="username" placeholder="e.g. alice, bob, or your username"
+                        class="w-full px-4 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
+                    <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••"
+                        class="w-full px-4 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+
+                <div class="flex items-center justify-between text-xs pt-1">
+                    <label class="flex items-center space-x-2 text-slate-400 cursor-pointer">
+                        <input type="checkbox" id="rememberMe" checked class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500">
+                        <span>Remember session</span>
+                    </label>
+                </div>
+
+                <button type="submit" id="loginSubmitBtn"
+                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2">
+                    <span>Sign In to SRPS</span>
+                </button>
+
+                <!-- Demo Account Fast Login -->
+                <div class="mt-6 pt-5 border-t border-slate-800/80">
+                    <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5 text-center">
+                        Quick Demo Accounts
+                    </span>
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                        <button type="button" onclick="fillDemo('alice', 'alice123')"
+                            class="p-2.5 bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition group text-left">
+                            <div class="font-bold text-indigo-400 group-hover:text-indigo-300">Alice</div>
+                            <div class="text-[10px] text-slate-400 truncate mt-0.5">ML & Deep Learning</div>
+                        </button>
+                        <button type="button" onclick="fillDemo('bob', 'bob123')"
+                            class="p-2.5 bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition group text-left">
+                            <div class="font-bold text-emerald-400 group-hover:text-emerald-300">Bob</div>
+                            <div class="text-[10px] text-slate-400 truncate mt-0.5">NLP & Retrieval</div>
+                        </button>
+                        <button type="button" onclick="fillDemo('charlie', 'charlie123')"
+                            class="p-2.5 bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition group text-left">
+                            <div class="font-bold text-amber-400 group-hover:text-amber-300">Charlie</div>
+                            <div class="text-[10px] text-slate-400 truncate mt-0.5">Computer Vision</div>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- ── FORM 2: REGISTER ── -->
+            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Choose Username</label>
+                    <input type="text" id="regUsername" required autocomplete="username" placeholder="e.g. researcher42"
+                        class="w-full px-4 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
+                        <input type="password" id="regPassword" required autocomplete="new-password" placeholder="••••••••"
+                            class="w-full px-4 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Confirm Password</label>
+                        <input type="password" id="regConfirmPassword" required autocomplete="new-password" placeholder="••••••••"
+                            class="w-full px-4 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-medium text-slate-300">Research Interests</label>
+                        <span class="text-[10px] text-slate-400">Comma-separated</span>
+                    </div>
+                    <textarea id="regInterests" rows="2" placeholder="e.g. transformers, graph neural networks, large language models"
+                        class="w-full px-4 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"></textarea>
+
+                    <!-- Quick Tag Chips -->
+                    <div class="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                        <span class="text-slate-400 self-center">Add:</span>
+                        <button type="button" onclick="addInterestTag('deep learning')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-md transition">+ Deep Learning</button>
+                        <button type="button" onclick="addInterestTag('transformers')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-md transition">+ Transformers</button>
+                        <button type="button" onclick="addInterestTag('computer vision')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-md transition">+ Vision</button>
+                        <button type="button" onclick="addInterestTag('graph neural networks')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-md transition">+ GNNs</button>
+                        <button type="button" onclick="addInterestTag('reinforcement learning')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-md transition">+ RL</button>
+                    </div>
+                </div>
+
+                <button type="submit" id="regSubmitBtn"
+                    class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs shadow-lg shadow-emerald-600/30 transition flex items-center justify-center space-x-2">
+                    <span>Create Research Account</span>
+                </button>
+            </form>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-6xl w-full mx-auto px-6 py-6 text-center text-xs text-slate-500">
+        SRPS v2.0 · KL University CSE Dept · DSA-3 Project
+    </footer>
+
+    <!-- Client Script -->
+    <script>
+        const $ = id => document.getElementById(id);
+
+        function showAlert(msg, isError = false) {
+            const box = $('alertBox');
+            box.className = isError
+                ? 'mb-4 p-3.5 rounded-xl text-xs flex items-center space-x-2 bg-rose-950/80 border border-rose-800/80 text-rose-300'
+                : 'mb-4 p-3.5 rounded-xl text-xs flex items-center space-x-2 bg-emerald-950/80 border border-emerald-800/80 text-emerald-300';
+            box.innerHTML = `<span>${isError ? '⚠️' : '✓'}</span><span>${msg}</span>`;
+            box.classList.remove('hidden');
+        }
+
+        function switchMode(mode) {
+            $('alertBox').classList.add('hidden');
+            if (mode === 'login') {
+                $('loginForm').classList.remove('hidden');
+                $('registerForm').classList.add('hidden');
+                $('tabBtnLogin').className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition bg-indigo-600 text-white shadow-sm';
+                $('tabBtnRegister').className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-slate-200';
+            } else {
+                $('loginForm').classList.add('hidden');
+                $('registerForm').classList.remove('hidden');
+                $('tabBtnRegister').className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition bg-emerald-600 text-white shadow-sm';
+                $('tabBtnLogin').className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-slate-200';
+            }
+        }
+
+        function fillDemo(username, password) {
+            $('loginUsername').value = username;
+            $('loginPassword').value = password;
+            showAlert(`Loaded credentials for ${username}. Click 'Sign In' or press Enter.`, false);
+        }
+
+        function addInterestTag(tag) {
+            const input = $('regInterests');
+            const curr = input.value.trim();
+            if (!curr) {
+                input.value = tag;
+            } else {
+                const parts = curr.split(',').map(s => s.trim().toLowerCase());
+                if (!parts.includes(tag.toLowerCase())) {
+                    input.value = curr + ', ' + tag;
+                }
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = $('loginUsername').value.trim();
+            const password = $('loginPassword').value.trim();
+
+            if (!username || !password) {
+                showAlert('Please provide both username and password.', true);
+                return;
+            }
+
+            const btn = $('loginSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="animate-spin">⏳</span><span>Authenticating...</span>';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    showAlert(data.error, true);
+                    return;
+                }
+
+                // Store active session in localStorage
+                const userObj = {
+                    userId: data.user_id,
+                    username: data.username,
+                    interests: data.interests || ''
+                };
+                localStorage.setItem('srps_active_user', JSON.stringify(userObj));
+
+                showAlert(`Welcome back, ${data.username}! Redirecting...`, false);
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 700);
+
+            } catch (err) {
+                showAlert('Network error: ' + err.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Sign In to SRPS</span>';
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const username = $('regUsername').value.trim();
+            const password = $('regPassword').value.trim();
+            const confirmPassword = $('regConfirmPassword').value.trim();
+            const interests = $('regInterests').value.trim();
+
+            if (password !== confirmPassword) {
+                showAlert('Passwords do not match.', true);
+                return;
+            }
+
+            if (password.length < 4) {
+                showAlert('Password must be at least 4 characters long.', true);
+                return;
+            }
+
+            const btn = $('regSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="animate-spin">⏳</span><span>Creating account...</span>';
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, interests })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    showAlert(data.error, true);
+                    return;
+                }
+
+                // Store active session in localStorage
+                const userObj = {
+                    userId: data.user_id,
+                    username: data.username,
+                    interests: data.interests || ''
+                };
+                localStorage.setItem('srps_active_user', JSON.stringify(userObj));
+
+                showAlert(`Account created successfully! Welcome, ${data.username}! Redirecting...`, false);
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 800);
+
+            } catch (err) {
+                showAlert('Registration error: ' + err.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Create Research Account</span>';
+            }
+        }
+    </script>
+</body>
+</html>
