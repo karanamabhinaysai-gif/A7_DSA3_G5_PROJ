@@ -146,3 +146,33 @@ def test_api_register_and_profile(client):
     assert p_data["username"] == random_user
     assert "robotics" in p_data["interests"]
 
+
+def test_api_evaluate(client):
+    response = client.get("/api/evaluate?k=5")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "models" in data
+    assert "hybrid" in data["models"]
+    assert "ndcg_at_k" in data["models"]["hybrid"]
+
+
+def test_api_analyze_paper(client):
+    response = client.post(
+        "/api/analyze/paper",
+        json={"text": "A deep residual neural network architecture for image recognition and classification benchmarks."},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "primary_domain" in data
+    assert "recommended_foundational_citations" in data
+
+
+def test_api_bibliometrics(client):
+    response = client.get("/api/bibliometrics")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "cocitation_pairs" in data
+    assert "bibliographic_coupling" in data
+    assert "top_influential_papers" in data
+
+

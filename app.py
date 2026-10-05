@@ -64,6 +64,13 @@ from python_engine.ranking import (
 )
 from python_engine.arxiv_service import search_arxiv
 from python_engine.export import to_bibtex, to_apa, export_papers_bibtex
+from python_engine.evaluator import run_algorithm_benchmark
+from python_engine.paper_analyzer import analyze_paper_text
+from python_engine.bibliometrics import (
+    compute_cocitation_matrix,
+    compute_bibliographic_coupling,
+    compute_paper_influence_metrics,
+)
 
 app = Flask(__name__, template_folder=os.path.join(PROJECT_ROOT, "templates"))
 
@@ -659,6 +666,54 @@ def update_interests():
     update_user_interests(conn, int(user_id), interests)
     conn.close()
     return jsonify({"success": True})
+
+
+# ── Academic Benchmarking, Manuscript Analysis & Bibliometrics ─────────────
+
+@app.route("/api/evaluate", methods=["GET"])
+def evaluate_endpoint():
+    """Run comprehensive empirical benchmark across all 6 models."""
+    _ensure_db()
+    k = request.args.get("k", default=10, type=int)
+    conn = get_connection(DB_PATH)
+    results = run_algorithm_benchmark(conn, k=k)
+    conn.close()
+    return jsonify(results)
+
+
+@app.route("/api/analyze/paper", methods=["POST"])
+def analyze_paper_endpoint():
+    """Analyze text/abstract and recommend citations."""
+    _ensure_db()
+    data = request.get_json(force=True, silent=True) or {}
+    text = data.get("text", "")
+    conn = get_connection(DB_PATH)
+    papers = get_all_papers(conn)
+    conn.close()
+    analysis = analyze_paper_text(text, papers)
+    return jsonify(analysis)
+
+
+@app.route("/api/bibliometrics", methods=["GET"])
+def bibliometrics_endpoint():
+    """Return co-citation, bibliographic coupling, and citation velocity."""
+    _ensure_db()
+    conn = get_connection(DB_PATH)
+    papers = get_all_papers(conn)
+    citations = get_citations(conn)
+    conn.close()
+
+    graph = build_citation_graph(citations)
+    cocitation = compute_cocitation_matrix(graph, top_n=15)
+    coupling = compute_bibliographic_coupling(graph, top_n=15)
+    influence = compute_paper_influence_metrics(graph, papers)
+
+    return jsonify({
+        "cocitation_pairs": cocitation,
+        "bibliographic_coupling": coupling,
+        "top_influential_papers": influence,
+    })
+
 
 
 
