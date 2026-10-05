@@ -1,11 +1,5 @@
-/**
- * client_engine.js — Client-side IR & Graph Science Engine for GitHub Pages
- * Enables full standalone execution on static web hosts (GitHub Pages) with
- * client-side BM25, graph algorithms, manuscript analysis, and evaluation benchmarks.
- */
-
 const BUNDLE_DATA = {
-    papers: [
+  papers: [
   {
     "id": 1,
     "title": "A Survey of Machine Learning Approaches for Classification",
@@ -757,7 +751,7 @@ const BUNDLE_DATA = {
     "arxiv_search_url": "https://arxiv.org/search/?query=Graph%20Mining%3A%20Patterns%20and%20Community%20Detection&searchtype=all"
   }
 ],
-    graph: {
+  graph: {
   "nodes": [
     {
       "id": 1,
@@ -2036,7 +2030,7 @@ const BUNDLE_DATA = {
     ]
   }
 },
-    benchmark: {
+  benchmark: {
   "k": 10,
   "test_queries_count": 4,
   "models": {
@@ -2048,7 +2042,11 @@ const BUNDLE_DATA = {
       "recall_at_k": 0.7542,
       "mrr": 1.0,
       "diversity_ild": 0.9643,
-      "avg_latency_ms": 1.88
+      "avg_latency_ms": 2.09,
+      "ndcg": 0.8226,
+      "map": 0.6406,
+      "diversity": 0.9643,
+      "latency_ms": 2.09
     },
     "tfidf": {
       "name": "TF-IDF Vector Space",
@@ -2058,7 +2056,11 @@ const BUNDLE_DATA = {
       "recall_at_k": 0.7042,
       "mrr": 1.0,
       "diversity_ild": 0.9648,
-      "avg_latency_ms": 1.15
+      "avg_latency_ms": 1.49,
+      "ndcg": 0.8053,
+      "map": 0.6218,
+      "diversity": 0.9648,
+      "latency_ms": 1.49
     },
     "graph_only": {
       "name": "PageRank Graph Only",
@@ -2068,7 +2070,11 @@ const BUNDLE_DATA = {
       "recall_at_k": 0.2646,
       "mrr": 0.5208,
       "diversity_ild": 0.9859,
-      "avg_latency_ms": 0.01
+      "avg_latency_ms": 0.03,
+      "ndcg": 0.319,
+      "map": 0.1194,
+      "diversity": 0.9859,
+      "latency_ms": 0.03
     },
     "hybrid": {
       "name": "SRPS Hybrid Fusion (Our Model)",
@@ -2078,7 +2084,11 @@ const BUNDLE_DATA = {
       "recall_at_k": 0.7229,
       "mrr": 1.0,
       "diversity_ild": 0.9685,
-      "avg_latency_ms": 7.9
+      "avg_latency_ms": 4.87,
+      "ndcg": 0.818,
+      "map": 0.6039,
+      "diversity": 0.9685,
+      "latency_ms": 4.87
     },
     "mmr": {
       "name": "MMR Diversity Reranking",
@@ -2088,7 +2098,11 @@ const BUNDLE_DATA = {
       "recall_at_k": 0.7125,
       "mrr": 1.0,
       "diversity_ild": 0.9728,
-      "avg_latency_ms": 291.83
+      "avg_latency_ms": 280.93,
+      "ndcg": 0.7881,
+      "map": 0.5955,
+      "diversity": 0.9728,
+      "latency_ms": 280.93
     },
     "rrf": {
       "name": "Reciprocal Rank Fusion",
@@ -2098,12 +2112,44 @@ const BUNDLE_DATA = {
       "recall_at_k": 0.6417,
       "mrr": 1.0,
       "diversity_ild": 0.9692,
-      "avg_latency_ms": 0.05
+      "avg_latency_ms": 0.05,
+      "ndcg": 0.7777,
+      "map": 0.5621,
+      "diversity": 0.9692,
+      "latency_ms": 0.05
+    },
+    "ppr": {
+      "name": "Personalized PageRank (RWR)",
+      "ndcg_at_k": 0.818,
+      "map_at_k": 0.6039,
+      "precision_at_k": 0.425,
+      "recall_at_k": 0.7229,
+      "mrr": 1.0,
+      "diversity_ild": 0.9685,
+      "avg_latency_ms": 4.87,
+      "ndcg": 0.818,
+      "map": 0.6039,
+      "diversity": 0.9685,
+      "latency_ms": 4.87
+    },
+    "pagerank": {
+      "name": "Global PageRank (Graph Only)",
+      "ndcg_at_k": 0.319,
+      "map_at_k": 0.1194,
+      "precision_at_k": 0.15,
+      "recall_at_k": 0.2646,
+      "mrr": 0.5208,
+      "diversity_ild": 0.9859,
+      "avg_latency_ms": 0.03,
+      "ndcg": 0.319,
+      "map": 0.1194,
+      "diversity": 0.9859,
+      "latency_ms": 0.03
     }
   },
-  "timestamp": "2026-10-05 11:20:50"
+  "timestamp": "2026-10-05 12:38:07"
 },
-    users: [
+  users: [
   {
     "id": 1,
     "username": "alice",
@@ -2148,11 +2194,16 @@ const BUNDLE_DATA = {
     "id": 9,
     "username": "user_1ea233",
     "interests": "robotics, RL"
+  },
+  {
+    "id": 10,
+    "username": "user_f61123",
+    "interests": "robotics, RL"
   }
 ]
 };
 
-// Client-side BM25 & Ranking Implementation
+
 function clientTokenize(text) {
     if (!text) return [];
     return text.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t.length > 1);
@@ -2186,7 +2237,7 @@ function clientBM25(query, papers) {
     const scores = {};
 
     papers.forEach(p => {
-        const tokens = docTokens[p.id];
+        const tokens = docTokens[p.id] || [];
         const tf = {};
         tokens.forEach(t => tf[t] = (tf[t] || 0) + 1);
 
@@ -2276,7 +2327,6 @@ function clientAnalyzeManuscript(text) {
     const totalKwMatches = Math.max(1, maxS + secondS);
     const confidence = Math.min(0.96, Math.max(0.72, maxS / totalKwMatches));
 
-    // Top keyphrases (most frequent significant words)
     const freq = {};
     const stopWords = new Set(['this', 'that', 'with', 'from', 'have', 'were', 'which', 'their', 'present', 'propose', 'model', 'methods']);
     tokens.forEach(t => {
@@ -2286,12 +2336,10 @@ function clientAnalyzeManuscript(text) {
     });
     const keyphrases = Object.keys(freq).sort((a,b) => freq[b] - freq[a]).slice(0, 8);
 
-    // Foundational (high citations)
     const foundational = [...BUNDLE_DATA.papers]
         .sort((a,b) => (b.citation_count || 0) - (a.citation_count || 0))
         .slice(0, 4);
 
-    // Contemporary (recent years)
     const contemporary = [...BUNDLE_DATA.papers]
         .sort((a,b) => (b.year || 0) - (a.year || 0))
         .slice(0, 4);
@@ -2305,44 +2353,43 @@ function clientAnalyzeManuscript(text) {
     };
 }
 
-// Mock API Dispatcher
 async function mockApiFetch(url, options = {}) {
-    const urlObj = new URL(url, window.location.origin);
-    const pathname = urlObj.pathname;
-    const params = urlObj.searchParams;
+    let pathname = url;
+    let queryStr = '';
+    if (typeof url === 'string') {
+        if (url.includes('?')) {
+            const parts = url.split('?');
+            pathname = parts[0];
+            queryStr = parts[1];
+        }
+    }
+    const params = new URLSearchParams(queryStr);
+    console.log('[SRPS Engine] Intercepted:', pathname);
 
-    console.log('[SRPS Client Engine] Mocking request:', pathname);
-
-    // 1. GET /api/papers
-    if (pathname === '/api/papers' || pathname.endsWith('/api/papers')) {
+    if (pathname.includes('/api/papers')) {
         return new Response(JSON.stringify({ papers: BUNDLE_DATA.papers }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 2. GET /api/graph/data
-    if (pathname === '/api/graph/data' || pathname.endsWith('/api/graph/data')) {
+    if (pathname.includes('/api/graph/data')) {
         return new Response(JSON.stringify(BUNDLE_DATA.graph), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 3. GET /api/graph/analytics
-    if (pathname === '/api/graph/analytics' || pathname.endsWith('/api/graph/analytics')) {
+    if (pathname.includes('/api/graph/analytics')) {
         return new Response(JSON.stringify(BUNDLE_DATA.graph.analytics), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 4. GET /api/graph/path
-    if (pathname === '/api/graph/path' || pathname.endsWith('/api/graph/path')) {
+    if (pathname.includes('/api/graph/path')) {
         const s = params.get('source_id') || 1;
         const t = params.get('target_id') || 6;
         const path = clientShortestPath(s, t);
         return new Response(JSON.stringify({ path: path, length: path.length ? path.length - 1 : 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 5. GET /api/evaluate
-    if (pathname === '/api/evaluate' || pathname.endsWith('/api/evaluate')) {
+    if (pathname.includes('/api/evaluate')) {
         return new Response(JSON.stringify(BUNDLE_DATA.benchmark), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 6. POST /api/analyze/paper
-    if (pathname === '/api/analyze/paper' || pathname.endsWith('/api/analyze/paper')) {
+    if (pathname.includes('/api/analyze/paper')) {
         let body = {};
         if (options.body) {
             try { body = JSON.parse(options.body); } catch(e) {}
@@ -2351,17 +2398,19 @@ async function mockApiFetch(url, options = {}) {
         return new Response(JSON.stringify(res), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 7. POST / GET /api/recommend
-    if (pathname === '/api/recommend' || pathname.endsWith('/api/recommend')) {
+    if (pathname.includes('/api/recommend')) {
         let query = params.get('query') || '';
-        let topK = parseInt(params.get('top_k') || '10');
+        let topK = parseInt(params.get('top_k') || '12');
         let algo = params.get('algorithm') || 'hybrid';
+        let weights = { content: 0.5, citation: 0.3, user_interest: 0.2, recency: 0.0 };
+
         if (options.body) {
             try {
                 const b = JSON.parse(options.body);
                 query = b.query || query;
                 topK = b.top_k || topK;
                 algo = b.algorithm || algo;
+                if (b.weights) weights = { ...weights, ...b.weights };
             } catch(e) {}
         }
 
@@ -2375,26 +2424,38 @@ async function mockApiFetch(url, options = {}) {
             const pr = node.pagerank || 0.02;
             const auth = node.authority_score || 0.02;
             const recency = Math.exp(-0.08 * (2024 - (p.year || 2020)));
+            const userScore = 0.75;
 
-            let finalScore = 0.5 * bm25 + 0.3 * (pr * 10) + 0.2 * recency;
+            let finalScore = weights.content * bm25 + weights.citation * (pr * 10) + weights.user_interest * userScore + weights.recency * recency;
             if (algo === 'bm25') finalScore = bm25;
             if (algo === 'pagerank') finalScore = pr * 10;
             if (algo === 'hits') finalScore = auth * 10;
             if (algo === 'recency') finalScore = recency;
 
             return {
-                ...p,
-                score: Math.min(0.99, Math.max(0.1, finalScore)),
-                content_similarity: bm25,
+                paper_id: p.id,
+                title: p.title,
+                authors: p.authors,
+                year: p.year,
+                abstract: p.abstract,
+                venue: p.venue,
+                keywords: p.keywords,
+                doi: p.doi,
+                url: p.direct_url || p.url || '',
+                pdf_url: p.pdf_url || '',
+                scholar_url: p.scholar_url || '',
+                semantic_scholar_url: p.semantic_scholar_url || '',
+                final_score: Math.min(0.99, Math.max(0.1, finalScore)),
+                content_score: bm25,
                 citation_score: pr * 10,
-                user_match_score: 0.75,
+                user_score: userScore,
                 recency_score: recency,
                 pagerank: pr,
                 authority_score: auth
             };
         });
 
-        results.sort((a,b) => b.score - a.score);
+        results.sort((a,b) => b.final_score - a.final_score);
         const sliced = results.slice(0, topK);
 
         return new Response(JSON.stringify({
@@ -2405,7 +2466,6 @@ async function mockApiFetch(url, options = {}) {
         }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 8. GET / POST /api/bookmarks
     if (pathname.includes('/api/bookmarks')) {
         const bookmarks = JSON.parse(localStorage.getItem('srps_bookmarks') || '[]');
         if (options.method === 'POST') {
@@ -2420,8 +2480,8 @@ async function mockApiFetch(url, options = {}) {
                     authors: p.authors,
                     year: p.year,
                     venue: p.venue,
-                    direct_url: p.direct_url,
-                    pdf_url: p.pdf_url,
+                    direct_url: p.direct_url || p.url || '',
+                    pdf_url: p.pdf_url || '',
                     reading_status: 'To Read',
                     notes: b.notes || '',
                     created_at: new Date().toISOString()
@@ -2439,38 +2499,43 @@ async function mockApiFetch(url, options = {}) {
         }
     }
 
-    // 9. GET /api/export/bibtex
     if (pathname.includes('/api/export/bibtex')) {
         const pid = parseInt(params.get('paper_id') || '1');
         const p = BUNDLE_DATA.papers.find(item => item.id === pid) || BUNDLE_DATA.papers[0];
-        const bib = `@article{paper${p.id},\n  title = {${p.title}},\n  author = {${p.authors}},\n  year = {${p.year}},\n  journal = {${p.venue}}\n}`;
+        const bib = '@article{paper' + p.id + ',\n  title = {' + p.title + '},\n  author = {' + p.authors + '},\n  year = {' + p.year + '},\n  journal = {' + p.venue + '}\n}';
         return new Response(bib, { status: 200, headers: { 'Content-Type': 'text/plain' } });
     }
 
-    // 10. POST /api/login & /api/register
     if (pathname.includes('/api/login') || pathname.includes('/api/register')) {
         let b = {};
         try { b = JSON.parse(options.body); } catch(e) {}
-        const u = { userId: 1, username: b.username || 'researcher', interests: b.interests || 'machine learning, deep learning' };
-        return new Response(JSON.stringify({ user: u, message: 'Authenticated successfully' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        const u = { userId: 1, user_id: 1, username: b.username || 'researcher', interests: b.interests || 'machine learning, deep learning' };
+        return new Response(JSON.stringify({ user: u, user_id: 1, username: u.username, interests: u.interests, message: 'Authenticated successfully' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Fallback 404
+    if (pathname.includes('/api/arxiv/search')) {
+        const q = (params.get('query') || '').toLowerCase();
+        const matches = BUNDLE_DATA.papers.filter(p => 
+            p.title.toLowerCase().includes(q) || (p.keywords && p.keywords.toLowerCase().includes(q)) || p.abstract.toLowerCase().includes(q)
+        ).slice(0, 6);
+        return new Response(JSON.stringify({ query: q, total_results: matches.length, papers: matches }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ message: 'Endpoint mocked' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
-// Global Fetch Interceptor
-const _originalFetch = window.fetch;
+// Global Fetch Interceptor - intercepts all /api/ calls
+const _nativeFetch = window.fetch;
 window.fetch = async function(resource, config) {
     const url = typeof resource === 'string' ? resource : (resource.url || '');
-    const isStatic = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
 
-    if (isStatic && url.includes('/api/')) {
+    const isStaticHost = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
+    if (isStaticHost && url.includes('/api/')) {
         return mockApiFetch(url, config);
     }
 
     try {
-        const response = await _originalFetch(resource, config);
+        const response = await _nativeFetch(resource, config);
         if (!response.ok && url.includes('/api/')) {
             return mockApiFetch(url, config);
         }
